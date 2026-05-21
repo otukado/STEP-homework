@@ -1,0 +1,8 @@
+spirit
+state
+tomato
+institute
+cancan
+cat
+dog
+aaa
