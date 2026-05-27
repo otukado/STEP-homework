@@ -79,15 +79,19 @@ struct HashTable {
 
     // 素数表を大きくする、エラトステネスの篩
     void expand_prime(int next_size) {
-        int sz = is_prime.size();
-        is_prime.resize(next_size, false);
-        for(const auto & prime : primes) {
-            for(int i = sz / prime; i*prime < next_size; ++i) {
-                is_prime[i * prime] = true;
+        // int sz = is_prime.size();
+        int max_prime = primes.back();
+        is_prime.resize(next_size+1, true);
+
+        for(int i=2; i<=next_size; ++i) {
+            if(is_prime[i] || i == 2) {
+                if(max_prime < i) {
+                    primes.push_back(i);
+                }
+                for(int j = max(2, max_prime / i); i * j <= next_size; ++j) {
+                    is_prime[i * j] = false;
+                }
             }
-        }
-        for(int i=sz; i<next_size; ++i) {
-            if(!is_prime[i] && i > 2) primes.push_back(i);
         }
     }
 
