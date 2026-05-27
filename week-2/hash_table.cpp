@@ -78,7 +78,7 @@ struct HashTable {
         }
     };
 
-    // 素数表を大きくする
+    // 素数表を大きくする、エラトステネスの篩
     void expand_prime(int next_size) {
         int sz = is_prime.size();
         is_prime.resize(next_size, false);
