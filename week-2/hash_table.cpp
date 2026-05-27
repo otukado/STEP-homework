@@ -43,7 +43,7 @@ struct HashTable {
         // iterator で回す
         for(auto it = _table.begin(); it != _table.end(); ++it) {
             if(key == it->first) {
-                _table.erase(it); // key と一致したら削除
+                _table.erase(it); // key と一致したら削除、list だから O(1)
                 --this->_size;
                 resize();
                 return true;
@@ -59,13 +59,12 @@ struct HashTable {
         return this->table.size();
     }
 
-
     void resize() {
-        if(!(3 * this->size() > 2 * this->bucket_size() || this->size() * 5 < this->bucket_size())) return; // あとでここの条件いじる
+        if(!(3 * this->size() > 2 * this->bucket_size() || this->size() * 5 < this->bucket_size())) return; // TODO: resize する条件を考える
         // primes から bucket_size を決定する
-        if((int) primes.back() < (int) this->size() * 5)expand_prime((int) this->size() * 10); // あとで考える
+        if((int) primes.back() < (int) this->size() * 5) expand_prime((int) this->size() * 10); // TODO: 素数表をいつ大きくするか考える
          
-        const int x = *(lower_bound(this->primes.begin(), this->primes.end(), this->size() * 3));
+        const int x = *(lower_bound(this->primes.begin(), this->primes.end(), this->size() * 3)); // TODO: size の何倍にするか考える
         auto copied = this->table;
         this->table.clear();
         this->table.resize(x);
@@ -92,6 +91,7 @@ struct HashTable {
         }
     }
 
+    // hash を計算し、mod を取る
     ull calculate_hash(K key) {
         ull hash = ::calculate_hash(key) % this->bucket_size();
         return hash;
@@ -99,7 +99,6 @@ struct HashTable {
     
     // key に対応する bucket を返す関数
     auto & get_bucket(K key) {
-        // hash を計算し、mod を取る
         ull hash = calculate_hash(key);
         return this->table[hash];
     }
@@ -109,7 +108,7 @@ struct HashTable {
 ull calculate_hash(string key) {
     ull hash = 0;
     for(const auto & c : key) {
-        hash += c - 'a'; // あとで直す
+        hash += c - 'a'; // TODO: hash 計算考える
     }
     return hash;
 };
