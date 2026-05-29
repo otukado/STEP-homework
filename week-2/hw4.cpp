@@ -44,14 +44,18 @@ struct list {
         this->RIGHT->left = this->LEFT;
     }
 
-    element* back () {
-        return this->RIGHT->left;
+    V back () {
+        return this->RIGHT->left->value;
+    }
+
+    V front() {
+        return this->LEFT->right->value;
     }
 
     void push_back(V value) {
         element* elem = new element();
 
-        auto back = this->back();
+        auto back = this->rbegin().item;
         this->RIGHT->left = elem; elem->right = this->RIGHT;
         back->right = elem; elem->left = back;
         elem->value = value;
@@ -81,7 +85,13 @@ struct list {
     iterator rend() {
         return iterator {LEFT};
     }
-    
+    iterator begin() {
+        return iterator {this->LEFT->right};
+    }
+
+    iterator end() {
+        return iterator {this->RIGHT};
+    }
 }; 
 
 template <typename K, typename V, int LIMIT>
@@ -104,12 +114,13 @@ struct cache {
         }
         else {
             ++this->miss_count;
-            if (pointers.size() >= LIMIT) items.pop_front();
+            if (pointers.size() >= LIMIT) {
+                pointers.erase(items.front().key);
+                items.pop_front();  
+            }
         }
         items.push_back({url, content});
-        auto new_it = items.back();
-
-        pointers.put(url, new_it);
+        pointers.put(url, items.rbegin().item);
     };
 
     auto get_pages(){
@@ -229,11 +240,9 @@ void performance_test() {
 
     for (int i = 0; i < NUM_QUERIES; ++i) {
         auto query = ranks[dist(random)];
-        // std::cerr << query << "\n";
         cache.access_page(std::to_string(query), "");
     }
 
-    // なぜか 99.9% になってしまう。なぜ。
     //  If your cache implementation is correct, the hit rate will be 91%.
     cout << "Cache hit rate = " << cache.get_hitrate() * 100 << '\n';
     cout << "Performance tests passed!" << '\n';
