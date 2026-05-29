@@ -18,9 +18,11 @@ struct tuple {
 // T と BUCKET_SIZE を指定する
 template<typename K, typename V>
 struct hash_table {
+    using table_type = vector<list<otukado::tuple<K, V>>>;
+
     // size によって動的に hash_table 内でサイズを変更したい
-    vector<list<otukado::tuple<K, V>>> table = vector<list<otukado::tuple<K, V>>>(3);
-    int _size;
+    table_type table = table_type(3);
+    int _size = 0;
     inline static vector<ull> primes = {2}; // 全ての hash_table で共有したい
     inline static vector<bool> is_prime;
 
@@ -68,21 +70,21 @@ struct hash_table {
     }
 
     void resize() {
-        if(!(3 * this->size() > 2 * this->bucket_size() || this->size() * 5 < this->bucket_size())) return; // TODO: resize する条件を考える
+        if(!(3 * this->size() > 2 * this->bucket_size() || this->size() * 4 < this->bucket_size())) return; // TODO: resize する条件を考える
         // primes から bucket_size を決定する
         if((int) primes.back() < (int) this->size() * 5) expand_prime((int) this->size() * 10); // TODO: 素数表をいつ大きくするか考える
          
         const int x = *(lower_bound(this->primes.begin(), this->primes.end(), this->size() * 3)); // TODO: size の何倍にするか考える
-        auto copied = this->table;
-        this->table.clear();
-        this->table.resize(x);
-        cout << x << '\n';
+        // copy しない
+        table_type next_table(x);
+        // cout << x << '\n';
         // copied から resize した table に詰め直す
-        for(const auto & bucket : copied) {
+        for(const auto & bucket : this->table) {
             for(const auto & element : bucket) {
-                get_bucket(element.key).push_back(element);
+                get_bucket(element.key, next_table).push_back(element);
             }
         }
+        this->table = std::move(next_table);
     };
 
     // 素数表を大きくする、エラトステネスの篩
@@ -104,23 +106,32 @@ struct hash_table {
     }
 
     // hash を計算し、mod を取る
-    ull calculate_hash(K key) {
-        ull hash = otukado::calculate_hash(key) % this->bucket_size();
+    ull calculate_hash(K key, int bucket_size) {
+        ull hash = otukado::calculate_hash(key) % bucket_size;
         return hash;
     }
     
     // key に対応する bucket を返す関数
     auto & get_bucket(K key) {
-        ull hash = calculate_hash(key);
-        return this->table[hash];
+        return this->get_bucket(key, this->table);
+    }
+
+    auto & get_bucket(K key, table_type& table) {
+        ull hash = calculate_hash(key, table.size());
+        return table[hash];
     }
 };
 
+// 2^54 の次の素数
+constexpr ull BIG_PRIME = 18014398509482143;
+constexpr ull SHIFT = 8;
 // hash 計算の本体。外にあるべき。string 用
 ull calculate_hash(string key) {
     ull hash = 0;
     for(const auto & c : key) {
-        hash += c - 'a'; // TODO: hash 計算考える
+        // hash は 2^8 進数と見たときの値
+        hash = (hash << SHIFT) % BIG_PRIME;
+        hash += c;
     }
     return hash;
 };

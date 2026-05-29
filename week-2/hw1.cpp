@@ -5,6 +5,8 @@ using ll = long long;
 using ull = unsigned long long;
 
 #include "./hash_table.hpp"
+#include "./timer.hpp"
+#include "./random.hpp"
 
 void functional_test() {
     otukado::hash_table<string, int> hash_table;
@@ -85,10 +87,40 @@ void functional_test() {
     cout << "Functional tests passed!" << '\n';
 };
 
+void performance_test() {
+    otukado::hash_table<std::string, int> hash_table;
+    for(int it = 0; it < 100; ++it) {
+        otukado::timer timer;
+        otukado::xor_shift random(it);
+        for(int i=0; i<10000; ++i) {
+            int rand = random() % 100000000;
+            hash_table.put(to_string(rand), rand);
+        }
+        random.seed(it);
+        for(int i=0; i<10000; ++i) {
+            int rand = random() % 100000000;
+            hash_table.get(to_string(rand));
+        }
+        cout << it << ": " << timer.elapsed_ms() << '\n';
+        cout << flush;
+    }
+
+    for(int it=0; it<100; ++it) {
+        otukado::xor_shift random(it);
+        for(int i=0; i<10000; ++i) {
+            int rand = random() % 100000000;
+            hash_table.erase(to_string(rand));
+        }
+    }
+    cerr << hash_table.size() << "\n";
+    assert(hash_table.size() == 0);
+    cout << "Performance tests passed!" << '\n';
+};
+
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     functional_test();
-    
+    performance_test();
 }

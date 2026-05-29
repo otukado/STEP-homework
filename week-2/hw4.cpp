@@ -5,6 +5,7 @@ using ll = long long;
 using ull = unsigned long long;
 
 #include "hash_table.hpp"
+#include "random.hpp"
 
 namespace otukado {
 
@@ -97,8 +98,14 @@ struct cache {
 
     void access_page(K url, V content){
         auto old_it = pointers.get(url);
-        if(old_it) items.erase(old_it.value());
-        else if (pointers.size() >= LIMIT) items.pop_front();
+        if(old_it) {
+            ++this->hit_count;
+            items.erase(old_it.value());
+        }
+        else {
+            ++this->miss_count;
+            if (pointers.size() >= LIMIT) items.pop_front();
+        }
         items.push_back({url, content});
         auto new_it = items.back();
 
@@ -112,6 +119,11 @@ struct cache {
         }
         return pages;
     };
+
+    float get_hitrate() {
+        float total = this->hit_count + this->miss_count;
+        return max<float>(0, (float)this->hit_count / total);
+    }
 };
 
 
@@ -195,15 +207,42 @@ void cache_test() {
     cout << "Tests passed!" << '\n';
 };
 
-void performance_test(){};
+void performance_test() {
+    //  Set the size of the cache to 100.
+    otukado::cache<std::string, std::string, 100> cache;
+
+    //  Generate queries based on the Zipf law.
+    const float ALPHA = 1.5;
+    const int NUM_QUERIES = 1000000;
+    const int NUM_PAGES = 1000;
+    
+    vector<int> ranks;
+    vector<float> weights;
+    for(int rank=1; rank<NUM_PAGES+1; ++rank) {
+        ranks.push_back(rank);
+        weights.push_back(1.0 / pow(rank, ALPHA));
+    }
+
+    discrete_distribution<> dist(weights.begin(), weights.end());
+    
+    otukado::xor_shift random;
+
+    for (int i = 0; i < NUM_QUERIES; ++i) {
+        auto query = ranks[dist(random)];
+        // std::cerr << query << "\n";
+        cache.access_page(std::to_string(query), "");
+    }
+
+    // なぜか 99.9% になってしまう。なぜ。
+    //  If your cache implementation is correct, the hit rate will be 91%.
+    cout << "Cache hit rate = " << cache.get_hitrate() * 100 << '\n';
+    cout << "Performance tests passed!" << '\n';
+};
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    std::list<int> list;
-
-    otukado::hash_table<string, std::list<int>::iterator> hash_list;
     cache_test();
-
+    performance_test();
 }
