@@ -106,8 +106,15 @@ public:
         // あらかじめ隣接リストを1回だけランダムシャッフルしておく
         std::random_device seed_gen;
         std::mt19937 engine(seed_gen());
+        // for (int i = 0; i < num_nodes; ++i) {
+        //     std::shuffle(links[i].begin(), links[i].end(), engine);
+        // }
         for (int i = 0; i < num_nodes; ++i) {
-            std::shuffle(links[i].begin(), links[i].end(), engine);
+            std::sort(links[i].begin(), links[i].end(), 
+            [&](int a, int b) {
+                // 接続先（aとb）が持つリンク数（次数）を比較し、少ない順にする
+                return links[a].size() < links[b].size();
+            });
         }
     }
 
@@ -218,8 +225,8 @@ private:
             }
 
             // u から 3〜10歩後ろの頂点 v を選ぶ
-            int max_skip = 30 - static_cast<int>(25 * ratio); 
-            int min_skip = 5;
+            int max_skip = 50 - static_cast<int>(45 * ratio); 
+            int min_skip = 3;
             int skip = min_skip + (next_rand() % (max_skip - min_skip + 1));
             v = u;
             for (int i = 0; i < skip; ++i) {
@@ -280,8 +287,13 @@ private:
                         visited_time[next_node] = current_time;
                         current_dfs_path.push_back(next_node);
                         
-                        int next_m = links[next_node].size();
-                        stack.push_back({next_node, next_m > 0 ? (int)(next_rand() % next_m) : 0});
+
+                        if (next_rand() % 100 < 50) {
+                            stack.push_back({next_node, 0}); // ランダムに選んだ隣接ノードから DFS を開始
+                        } else {
+                            int next_m = links[next_node].size();
+                            stack.push_back({next_node, next_m > 0 ? (int)(next_rand() % next_m) : 0});
+                        }
                         moved = true;
                         break;
                     }
@@ -319,6 +331,7 @@ public:
         int iter_count = 0;
         int update_count = 0;
 
+        const int CHECK_INTERVAL = 1024;
         // otukado::list max_state = path;
 
         while (true) {
@@ -427,15 +440,15 @@ public:
 };
 
 int main() {
-    // const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
-    // const auto links_file = "../wikipedia_dataset/links_medium.txt";
-    // Wikipedia wikipedia_med(pages_file, links_file);
-    // wikipedia_med.find_longest_path("渋谷", "池袋", 300);
+    const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
+    const auto links_file = "../wikipedia_dataset/links_medium.txt";
+    Wikipedia wikipedia_med(pages_file, links_file);
+    wikipedia_med.find_longest_path("渋谷", "池袋", 300);
 
-    const auto pages_file_large = "../wikipedia_dataset/pages_large.txt";
-    const auto links_file_large = "../wikipedia_dataset/links_large.txt";
-    Wikipedia wikipedia_large(pages_file_large, links_file_large);
-    wikipedia_large.find_longest_path("渋谷", "池袋", 500);
+    // const auto pages_file_large = "../wikipedia_dataset/pages_large.txt";
+    // const auto links_file_large = "../wikipedia_dataset/links_large.txt";
+    // Wikipedia wikipedia_large(pages_file_large, links_file_large);
+    // wikipedia_large.find_longest_path("渋谷", "池袋", 500);
 
 
     return 0;
