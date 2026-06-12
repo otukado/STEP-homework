@@ -1,1 +1,4 @@
 *.out
+**target/
+*.zip
+*/wikipedia_dataset/
