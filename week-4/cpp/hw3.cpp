@@ -288,7 +288,7 @@ private:
                         current_dfs_path.push_back(next_node);
                         
 
-                        if (next_rand() % 100 < 50) {
+                        if (next_rand() % 100 < 95) {
                             stack.push_back({next_node, 0}); // ランダムに選んだ隣接ノードから DFS を開始
                         } else {
                             int next_m = links[next_node].size();
@@ -323,7 +323,7 @@ public:
     void simulated_annealing(otukado::list& path, OptimizerState& state) {
         
         Timer timer;
-        const int TIME_LIMIT_MS = 100000; 
+        const int TIME_LIMIT_MS = 150000; 
 
         const double start_temp = 50.0;
         const double end_temp = 0.1;
@@ -333,13 +333,17 @@ public:
 
         const int CHECK_INTERVAL = 1024;
         // otukado::list max_state = path;
+        int elapsed = 0;
 
         while (true) {
-            int elapsed = timer.elapsed_ms();
-            if (elapsed >= TIME_LIMIT_MS) {
-                // path = max_state;
-                break;
+            if ((iter_count & (CHECK_INTERVAL - 1)) == 0) {
+                elapsed = timer.elapsed_ms();
+                if (elapsed >= TIME_LIMIT_MS) break;
+                
+                double time_ratio = static_cast<double>(elapsed) / TIME_LIMIT_MS;
+                auto temp = start_temp * std::pow(end_temp / start_temp, time_ratio);
             }
+            ++iter_count;
             ++iter_count;
 
             int u, v; //u,v を決定
@@ -440,15 +444,15 @@ public:
 };
 
 int main() {
-    const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
-    const auto links_file = "../wikipedia_dataset/links_medium.txt";
-    Wikipedia wikipedia_med(pages_file, links_file);
-    wikipedia_med.find_longest_path("渋谷", "池袋", 300);
+    // const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
+    // const auto links_file = "../wikipedia_dataset/links_medium.txt";
+    // Wikipedia wikipedia_med(pages_file, links_file);
+    // wikipedia_med.find_longest_path("渋谷", "池袋", 300);
 
-    // const auto pages_file_large = "../wikipedia_dataset/pages_large.txt";
-    // const auto links_file_large = "../wikipedia_dataset/links_large.txt";
-    // Wikipedia wikipedia_large(pages_file_large, links_file_large);
-    // wikipedia_large.find_longest_path("渋谷", "池袋", 500);
+    const auto pages_file_large = "../wikipedia_dataset/pages_large.txt";
+    const auto links_file_large = "../wikipedia_dataset/links_large.txt";
+    Wikipedia wikipedia_large(pages_file_large, links_file_large);
+    wikipedia_large.find_longest_path("渋谷", "池袋", 500);
 
 
     return 0;
