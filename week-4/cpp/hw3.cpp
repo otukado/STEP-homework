@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <cmath>
 #include <atcoder/all>
 
 class Timer {
@@ -42,19 +43,14 @@ struct list {
     }
     // u と v を含んだ new_path を渡す
     void change_path(int u, int v, const std::vector<int>& new_path) {
-        int curr = u;
-  
-        while(curr != v) {
-            prev_node[next_node[curr]] = 0;
-            next_node[curr] = 0;
-            ++curr;
-            --size;
-        }
-        curr = u;
-        for(const auto& next: new_path) {
-            next_node[curr] = next;
-            prev_node[next] = curr;
-            ++size;
+        for (size_t i = 0; i < new_path.size() - 1; ++i) {
+            int from = new_path[i];
+            int to = new_path[i + 1];
+            
+            next_node[from] = to;
+            prev_node[to] = from;
+            
+            ++size; 
         }
     }
 };
@@ -181,6 +177,197 @@ public:
         return path;
     }
 
+private:
+    // 山登り法の処理と状態をカプセル化したヘルパー構造体
+    struct OptimizerState {
+        int num_nodes;
+        const std::vector<std::vector<int>>& links;
+        uint32_t seed;
+        
+        // 探索状態を保持するバッファ（メンバ変数にすることで再確保を防ぐ）
+        std::vector<int> visited_time;
+        int current_time;
+        
+        struct StackState { int node; int edge_idx; };
+        std::vector<StackState> stack;
+        std::vector<int> current_dfs_path;
+
+        // コンストラクタでバッファを一度だけ確保
+        OptimizerState(int n, const std::vector<std::vector<int>>& l)
+            : num_nodes(n), links(l), seed(2463534242), visited_time(n, 0), current_time(0) {
+            stack.reserve(num_nodes);
+            current_dfs_path.reserve(num_nodes);
+        }
+
+        inline uint32_t next_rand() {
+            seed ^= (seed << 13);
+            seed ^= (seed >> 17);
+            seed ^= (seed << 5);
+            return seed;
+        }
+
+        // 1. パス上の頂点 u, v をランダムに選択する
+        bool select_segment(const otukado::list& path, int& u, int& v, float ratio) {
+            // 確率 1/10 でパス上の頂点 u を探す
+            while (true) {
+                int candidate = next_rand() % num_nodes;
+                if (path.next_node[candidate] != -1) {
+                    u = candidate;
+                    break;
+                }
+            }
+
+            // u から 3〜10歩後ろの頂点 v を選ぶ
+            int max_skip = 30 - static_cast<int>(25 * ratio); 
+            int min_skip = 5;
+            int skip = min_skip + (next_rand() % (max_skip - min_skip + 1));
+            v = u;
+            for (int i = 0; i < skip; ++i) {
+                v = path.next_node[v];
+                if (v == -1) return false; // パスの終端を突き抜けた場合は無効
+            }
+            return (v != path.end);
+        }
+
+        // 2. 既存のパスを切り離し、古い部分パスを退避させる
+        std::vector<int> disconnect_segment(otukado::list& path, int u, int v) {
+            std::vector<int> old_subpath;
+            int curr = u;
+            while (curr != v) {
+                old_subpath.push_back(curr);
+                int nxt = path.next_node[curr];
+                
+                path.next_node[curr] = -1;
+                path.prev_node[nxt] = -1;
+                --path.size;
+                curr = nxt;
+            }
+            old_subpath.push_back(v);
+            return old_subpath;
+        }
+
+        bool run_local_dfs(int u, int v, const otukado::list& path) {
+            if (current_time > 2000000000) {
+                std::fill(visited_time.begin(), visited_time.end(), 0);
+                current_time = 0;
+            }
+
+            ++current_time;
+            stack.clear();
+            current_dfs_path.clear();
+
+            int start_m = links[u].size();
+            stack.push_back({u, start_m > 0 ? (int)(next_rand() % start_m) : 0});
+            visited_time[u] = current_time;
+            current_dfs_path.push_back(u);
+
+            while (!stack.empty()) {
+                auto& [c_node, edge_idx] = stack.back();
+                if (c_node == v) return true; 
+
+                const auto& current_links = links[c_node];
+                int m = current_links.size();
+                bool moved = false;
+
+                for (int i = 0; i < m; ++i) {
+                    int idx = edge_idx;
+                    edge_idx = (edge_idx + 1) % m;
+                    int next_node = current_links[idx];
+
+                    if (visited_time[next_node] != current_time && 
+                       (path.next_node[next_node] == -1 && (next_node != path.end) || (next_node == v))) {
+                        
+                        visited_time[next_node] = current_time;
+                        current_dfs_path.push_back(next_node);
+                        
+                        int next_m = links[next_node].size();
+                        stack.push_back({next_node, next_m > 0 ? (int)(next_rand() % next_m) : 0});
+                        moved = true;
+                        break;
+                    }
+                }
+
+                if (!moved) {
+                    current_dfs_path.pop_back();
+                    stack.pop_back();
+                }
+            }
+            return false;
+        }
+
+        // 4. 改悪時に元のパスへ戻す（ロールバック）
+        void rollback(otukado::list& path, const std::vector<int>& old_subpath) {
+            for (size_t i = 0; i < old_subpath.size() - 1; ++i) {
+                int a = old_subpath[i];
+                int b = old_subpath[i + 1];
+                path.next_node[a] = b;
+                path.prev_node[b] = a;
+                ++path.size;
+            }
+        }
+    };
+
+public:
+    void simulated_annealing(otukado::list& path, OptimizerState& state) {
+        
+        Timer timer;
+        const int TIME_LIMIT_MS = 100000; 
+
+        const double start_temp = 50.0;
+        const double end_temp = 0.1;
+
+        int iter_count = 0;
+        int update_count = 0;
+
+        // otukado::list max_state = path;
+
+        while (true) {
+            int elapsed = timer.elapsed_ms();
+            if (elapsed >= TIME_LIMIT_MS) {
+                // path = max_state;
+                break;
+            }
+            ++iter_count;
+
+            int u, v; //u,v を決定
+            if (!state.select_segment(path, u, v, static_cast<double>(elapsed) / TIME_LIMIT_MS)) continue;
+
+            std::vector<int> old_subpath = state.disconnect_segment(path, u, v);
+
+            // 局所DFSの実行
+            bool found = state.run_local_dfs(u, v, path);
+            bool accept = false;
+
+            if(found) {
+                int diff = (state.current_dfs_path.size()) - (old_subpath.size());
+                if(diff > 0) accept = true;
+                else {
+                    double time_ratio = static_cast<double>(elapsed) / TIME_LIMIT_MS;
+                    double temp = start_temp * pow(end_temp / start_temp, time_ratio);
+                    
+                    double prob = std::exp(diff / temp);
+                    
+                    // 0.0 ~ 1.0 の乱数を生成して確率判定
+                    double r = (state.next_rand() % 1000000000) / 1e9;
+                    if (r < prob) {
+                        accept = true;
+                    }
+                }
+            }
+
+            if (accept) {
+                path.change_path(u, v, state.current_dfs_path);
+                ++update_count;
+                // if(path.size > max_state.size) {
+                //     max_state = path;
+                // }
+            } else {
+                state.rollback(path, old_subpath);
+            }
+        }
+        std::cout << "update_count: " << update_count << '\n';
+    }
+
     // Homework #3 (optional): ヒューリスティクスを用いた最長経路の探索
     void find_longest_path(const std::string& _start, const std::string& _goal, const int& times) {
         const int start = this->ids.at(_start);
@@ -201,6 +388,11 @@ public:
                 }
             }
         }
+
+        OptimizerState state(num_nodes, links);
+
+        //ここから焼きなまし
+        simulated_annealing(current_path, state);
         
         int it = current_path.begin;
         std::vector<int> ans;
@@ -212,7 +404,6 @@ public:
         assert_path(ans, _start, _goal);
         std::cout << ans.size() << '\n';
 
-        //ここから山登り法
     };
 
     // Homework #3 のためのヘルパー関数
@@ -236,16 +427,15 @@ public:
 };
 
 int main() {
-    const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
-    const auto links_file = "../wikipedia_dataset/links_medium.txt";
-    Wikipedia wikipedia_med(pages_file, links_file);
-    // Homework #3 (optional)
-    wikipedia_med.find_longest_path("渋谷", "池袋", 5000);
+    // const auto pages_file = "../wikipedia_dataset/pages_medium.txt";
+    // const auto links_file = "../wikipedia_dataset/links_medium.txt";
+    // Wikipedia wikipedia_med(pages_file, links_file);
+    // wikipedia_med.find_longest_path("渋谷", "池袋", 300);
 
     const auto pages_file_large = "../wikipedia_dataset/pages_large.txt";
     const auto links_file_large = "../wikipedia_dataset/links_large.txt";
     Wikipedia wikipedia_large(pages_file_large, links_file_large);
-    wikipedia_large.find_longest_path("渋谷", "池袋", 5000);
+    wikipedia_large.find_longest_path("渋谷", "池袋", 500);
 
 
     return 0;
