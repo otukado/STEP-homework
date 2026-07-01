@@ -1,3 +1,9 @@
 [submodule "scripts"]
 	path = scripts
 	url = https://github.com/xharaken/step2.git
+[submodule "week-5"]
+	path = week-5
+	url = git@github.com:otukado/google-step-tsp.git
+[submodule "week-7"]
+	path = week-7
+	url = git@github.com:otukado/malloc_challenge.git
